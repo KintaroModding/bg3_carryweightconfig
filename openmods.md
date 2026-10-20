@@ -4,12 +4,11 @@ Sets your party's carry weight limit with a multiplier in the Mod Configuration 
 
 ## What it does
 
-- Multiplies the carry weight limit of all your party members and camp companions with a value that you set in
-  the Mod Configuration Menu: 1.0 is the game's limit, 2.0 twice as much, up to 90.0. Values down to 0.25 make the
-  game harder. The default is 2.0.
-- A change applies at once, also during a game. New party members get it when they join.
-- It uses the game's own carry weight boost (the one of Bull's Strength and Enlarge), so the game computes the limits
-  as usual. NPCs and enemies keep the game's limits.
+- Multiplies the carry weight limit with a value that you set in the Mod Configuration Menu: 1.0 is the game's
+  limit, 2.0 twice as much, up to 90.0. Values down to 0.25 make the game harder. The default is 2.0.
+- It changes the game's own carry values (the ones that a `Data.txt` mod changes) while the game runs, so the limit
+  counts for every character, NPCs too, and the Encumbered thresholds move with it.
+- A change applies at once, also during a game.
 
 ## Screenshots
 
@@ -39,14 +38,10 @@ and delete the `.pak`. Saves made with the mod can then show a warning about a m
 ## Compatibility
 
 - Game version: Patch 8
-- Carry weight boosts in the game do not add up: only the highest one counts. A human's Human Versatility (1.25)
-  adds nothing on top of this mod's value either. With 2.5 set, Bull's Strength (2.0) adds nothing more; with 1.5
-  set, Bull's Strength still gives 2.0 while it lasts. The same rule works for low values: with 0.5 set, even Reduce
-  (0.75) raises the limit to 0.75 while it lasts.
-- After loading a save, the game's limit shows for a few seconds, until the level has started; then the mod's value
-  applies.
+- The game's carry boosts (Bull's Strength, Enlarge, Human Versatility, ...) work as usual on top of the limit that
+  this mod sets.
 - Mods that change the carry weight values in `Data.txt` work together with this one: the multiplier applies to the
-  limit that they set.
+  values that they set.
 
 ## Known issues
 

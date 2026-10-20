@@ -10,32 +10,25 @@ does, how to install it and its compatibility are in [openmods.md](openmods.md),
 
 ## How it works
 
-- The MCM setting `carry_multiplier` (`slider_float`, 0.25 to 90.0, default 2.0) is the factor. `Server/Carry.lua`
-  rounds it to two decimals, clamps it to the slider range, and gives every party member (`DB_Players`) and camp
-  companion (`DB_PartOfTheTeam`), without summons, the game's boost `CarryCapacityMultiplier(<factor>)` with
-  `Osi.AddBoosts(character, boost, "bg3_carryweightconfig", NULL)`. For 1.0 it gives no boost.
-- The boost text each character got is kept in the mod variable `AppliedBoosts` (saved with the game,
-  `Shared/Vars.lua`), so that a change removes exactly the old boost (`Osi.RemoveBoosts`) before it adds the new one,
-  also for characters that left the team.
-- A loaded game does not have the boosts any more (game log 2026-10-20: `none` on every character), although
-  `AppliedBoosts` lists them. So `LevelGameplayStarted` renews them, and checks again 3 seconds later
-  (`Carry.RenewDelayMs`): it reads each character's carry boosts (`BoostsContainer`) and adds the boost only when it
-  is missing. It never removes and adds the same boost text in one go: the game then ends without the boost (game log
-  2026-10-20: still `none` after such a renewal). A different old boost is removed first, as a slider change does.
-  The test world (`tests/world.lua`) behaves the same way: requests wait, additions run before removals.
-- Nothing happens on `SessionLoaded`: Osiris databases cannot be read then ("Attempted to read Osiris database in
-  restricted context").
-- It also applies on `CharacterJoinedParty`, `CharacterLeftParty` and after each MCM change or profile switch;
-  characters whose boost is already right are left alone then.
-- Every apply runs protected: an error goes into `server.log` as `ERROR in <reason>: ...`, and the next event tries
-  again.
-- A second after a change, `server.log` lists the weights the game computed (`EncumbranceStats`, in kg) and the
-  carry boosts of each character.
-- Carry weight boosts do not add up: only the highest one counts. bg3.wiki names Human Versatility as an exception,
-  but the game log of 2026-10-20 shows it adds nothing on top of this mod's boost (Gale and Wyll with 1.25 + 21.24
-  had the same limits as the others). The limit is (40 + 10 x Strength) kg (`CarryWeightBase`,
-  `CarryLimitMultiplier` in `Data.txt`, Strength 8: 120 kg); the boost multiplies it and the Encumbered and Heavily
-  Encumbered thresholds (game log: 96/112/120 kg became 2039.04/2378.88/2548.8 kg with 21.24).
+- The MCM setting `carry_multiplier` (`slider_float`, 0.25 to 90.0, default 2.0) is the factor.
+  `Shared/CarryData.lua` rounds it to two decimals, clamps it to the slider range, and writes the game's global
+  carry values (`Ext.Stats.GetStatsManager().ExtraData`, the keys of `Data.txt`) as original x factor:
+  `CarryWeightBase`, `CarryLimitMultiplier`, `EncumberedMultiplier`, `HeavilyEncumberedMultiplier`.
+- The game computes each character's weights as `CarryWeightBase` + Strength x `CarryLimitMultiplier` (the limit),
+  x `HeavilyEncumberedMultiplier` and x `EncumberedMultiplier` (game log 2026-10-20, Strength 8: 96/112/120 kg =
+  40 + 8 x 7, 9, 10), so multiplying all four values multiplies the three weights, for every character.
+- The originals are kept in `ExtraData` itself (`bg3_carryweightconfig_Original_<key>`): the values stay in the game
+  process across session loads while the Lua state starts again, so a later read could already be multiplied.
+- The values are per game process and never in a save. The client writes them on `StatsLoaded` (before a save
+  loads) and `SessionLoaded`, the server on `SessionLoaded` and `LevelGameplayStarted`, both after every MCM change
+  or profile switch. On the host, client and server share one set of values.
+- After a change and at the level start, `Server/Carry.lua` logs the weights the game computed (`EncumbranceStats`),
+  gives the party the neutral boost `CarryCapacityMultiplier(1.00)` for a second so that the game computes them
+  again, and logs them once more. Only the newest of several quick changes does this.
+- Every write runs protected: an error goes into the log as `ERROR in <reason>: ...`.
+- Version 1.0.0.0 gave each party member a boost instead (`Osi.AddBoosts`); such boosts are lost on a load and
+  must be added again (playbook `knowledge\boosts.md`). The mod variable `AppliedBoosts` of that version stays
+  registered (`Shared/Vars.lua`).
 
 ## Settings
 
@@ -76,8 +69,9 @@ src/                                     Mod files (packed into the .pak)
     Lua/Shared/Common.lua                Shared helpers (mod version)
     Lua/Shared/FileWriter.lua            Throttled file output in the Script Extender folder
     Lua/Shared/Settings.lua              MCM settings with defaults (Settings.Defaults)
-    Lua/Shared/Vars.lua                  The mod variable AppliedBoosts (registered in both contexts)
-    Lua/Server/Carry.lua                 The carry weight boosts
+    Lua/Shared/CarryData.lua             The global carry values (both contexts)
+    Lua/Shared/Vars.lua                  The mod variable AppliedBoosts of 1.0.0.0 (still registered)
+    Lua/Server/Carry.lua                 The server events, the refresh and the limits log
     Lua/Server/ServerLog.lua             server.log
     Lua/Client/ClientLog.lua             client.log
 docs/                                    Cover and screenshots for openmods.md
@@ -99,8 +93,9 @@ python scripts\bump_version.py --show
 Logs: the mod writes `server.log` and `client.log` to
 `%LOCALAPPDATA%\Larian Studios\Baldur's Gate 3\Script Extender\bg3_carryweightconfig\`. Each load writes a line like
 `Carry Weight Config 1.0.0.1 loaded.`, so the logs show which version runs, and server.log gets a line with every
-setting, for example `Settings: carry_multiplier = 2.0 (MCM).`. Each apply writes a line such as `Setting changed:
-multiplier 2.50 (MCM), boost CarryCapacityMultiplier(2.50): 3 changed, ...`. MCM stores the settings in
+setting, for example `Settings: carry_multiplier = 2.0 (MCM).`. Each write logs a line such as `Setting changed:
+multiplier 2.50 (MCM): CarryWeightBase 100, CarryLimitMultiplier 25, ...`, and the server logs the computed weights
+before and after the refresh. MCM stores the settings in
 `Script Extender\BG3MCM\Profiles\<Profile>\bg3_carryweightconfig\settings.json`. `python scripts\show_log.py` prints the
 newest log lines and these settings (from `BG3_DATA_DIR`, if set).
 

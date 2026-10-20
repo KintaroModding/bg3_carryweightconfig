@@ -77,10 +77,23 @@ function World.Add(guid, fields)
     return fields
 end
 
+--- The game's global carry values (Patch 8 Data.txt) behind Ext.Stats.GetStatsManager().ExtraData.
+function World.GameExtraData()
+    return {
+        CarryWeightBase = 40, CarryWeightPerStr = 10000, CarryLimitMultiplier = 10, EncumberedMultiplier = 7,
+        HeavilyEncumberedMultiplier = 9,
+    }
+end
+World.ExtraData = World.GameExtraData()
+Ext.Stats.GetStatsManager = function()
+    return { ExtraData = World.ExtraData }
+end
+
 function World.Reset()
     World.Characters = {}
     World.Calls = { Add = 0, Remove = 0 }
     World.Pending = {}
+    World.ExtraData = World.GameExtraData()
     Harness.Objects = {}
     World.Add(World.Hero, { Player = true, Team = true })
     World.Add(World.Shadowheart, { Player = true, Team = true })
