@@ -76,34 +76,9 @@ local function SaveApplied(applied)
     Ext.Vars.GetModVariables(ModuleUUID).AppliedBoosts = applied
 end
 
---- One second later (the game recalculates the limits after a boost change), logs the weights the game computed:
---- the component EncumbranceStats holds them in grams.
-local function LogLimits()
-    Ext.Timer.WaitForRealtime(1000, function()
-        local done, err = pcall(function()
-            local parts = {}
-            for _, character in ipairs(Carry.Team()) do
-                local ok, stats = pcall(function()
-                    return Ext.Entity.Get(character).EncumbranceStats
-                end)
-                if ok and stats ~= nil then
-                    parts[#parts + 1] = string.format("%s %g/%g/%g", Short(character), stats.UnencumberedWeight / 1000,
-                        stats.EncumberedWeight / 1000, stats.HeavilyEncumberedWeight / 1000)
-                end
-            end
-            if #parts > 0 then
-                ServerLog.Add("Carry limits in kg (UnencumberedWeight/EncumberedWeight/HeavilyEncumberedWeight): "
-                    .. table.concat(parts, ", ") .. ".")
-            end
-        end)
-        if not done then
-            ServerLog.Add("ERROR while reading the carry limits: " .. tostring(err))
-        end
-    end)
-end
-
 --- The CarryCapacityMultiplier values a character has now, read from its boost components, for the log: "90",
---- "90+2" (several), "none", or "?" when the components cannot be read.
+--- "1.25+90" (several), "none", or "?" when the components cannot be read. Reading works (game log 2026-10-20:
+--- Gale and Wyll showed 1.25, the boost of Human Versatility).
 local function CarryBoostsOf(character)
     local ok, result = pcall(function()
         local found = {}
@@ -114,9 +89,37 @@ local function CarryBoostsOf(character)
                 end
             end
         end
+        table.sort(found)
         return #found > 0 and table.concat(found, "+") or "none"
     end)
     return ok and result or "?"
+end
+
+--- One second later (the game recalculates the limits after a boost change), logs the weights the game computed
+--- (the component EncumbranceStats holds them in grams) and the carry boosts each character has.
+local function LogLimits()
+    Ext.Timer.WaitForRealtime(1000, function()
+        local done, err = pcall(function()
+            local parts = {}
+            for _, character in ipairs(Carry.Team()) do
+                local ok, stats = pcall(function()
+                    return Ext.Entity.Get(character).EncumbranceStats
+                end)
+                if ok and stats ~= nil then
+                    parts[#parts + 1] = string.format("%s %g/%g/%g [%s]", Short(character),
+                        stats.UnencumberedWeight / 1000, stats.EncumberedWeight / 1000,
+                        stats.HeavilyEncumberedWeight / 1000, CarryBoostsOf(character))
+                end
+            end
+            if #parts > 0 then
+                ServerLog.Add("Carry limits in kg (UnencumberedWeight/EncumberedWeight/HeavilyEncumberedWeight) "
+                    .. "[carry boosts]: " .. table.concat(parts, ", ") .. ".")
+            end
+        end)
+        if not done then
+            ServerLog.Add("ERROR while reading the carry limits: " .. tostring(err))
+        end
+    end)
 end
 
 -- What this mod gave in this session: [character UUID] = boost text. nil until the first apply of the session. The
@@ -131,13 +134,13 @@ end
 --- Gives every team member the boost of the current multiplier and removes old boosts of this mod, also from
 --- characters that left the team. Writes one log line with the reason.
 ---
---- A loaded game does not have the boosts any more (game test 2026-10-20: the limit was the game's after a load,
---- although the saved record listed the boosts). So the first apply of a session trusts nothing: it removes the
---- recorded boost (nothing happens when it is gone) and adds the current one.
-local function Apply(reason)
+--- A loaded game does not have the boosts any more (game log 2026-10-20: "none" after a load, although the saved
+--- record listed them). So the first apply of a session, and every apply with renewAll, trusts nothing: it removes
+--- the recorded boost (nothing happens when it is gone) and adds the current one.
+local function Apply(reason, renewAll)
     local multiplier, source = Carry.Multiplier()
     local boost = Carry.Boost(multiplier)
-    local renew = sessionApplied == nil
+    local renew = renewAll == true or sessionApplied == nil
     local applied = renew and LoadApplied() or sessionApplied
     local inTeam = {}
     local changed, unchanged, removed = 0, 0, 0
@@ -148,7 +151,7 @@ local function Apply(reason)
         for _, character in ipairs(team) do
             found[#found + 1] = Short(character) .. " " .. CarryBoostsOf(character)
         end
-        ServerLog.Add("First apply of the session. Carry boosts found: " .. table.concat(found, ", ") .. ".")
+        ServerLog.Add(reason .. ": renewing all boosts. Carry boosts found: " .. table.concat(found, ", ") .. ".")
     end
 
     for _, character in ipairs(team) do
@@ -190,19 +193,26 @@ end
 
 --- Apply, protected: an error goes into server.log (the Script Extender console is not visible from here), and the
 --- next event tries again.
-function Carry.Apply(reason)
-    local ok, err = pcall(Apply, reason)
+function Carry.Apply(reason, renewAll)
+    local ok, err = pcall(Apply, reason, renewAll)
     if not ok then
         ServerLog.Add("ERROR in " .. reason .. ": " .. tostring(err))
     end
 end
 
+-- Boosts added while a save loads do not count (game log 2026-10-20: added at LevelGameplayStarted, the limits a
+-- second later were still the game's), but a change some seconds later works (the slider). So the level start
+-- renews all boosts once more after this delay.
+Carry.RenewDelayMs = 3000
+
 function Carry.Init()
-    Ext.Events.SessionLoaded:Subscribe(function()
-        Carry.Apply("Session loaded")
-    end)
+    -- No apply on SessionLoaded: Osiris databases cannot be read then ("Attempted to read Osiris database in
+    -- restricted context", game log 2026-10-20).
     Ext.Osiris.RegisterListener("LevelGameplayStarted", 2, "after", function()
-        Carry.Apply("Level started")
+        Carry.Apply("Level started", true)
+        Ext.Timer.WaitForRealtime(Carry.RenewDelayMs, function()
+            Carry.Apply(string.format("%g s after the level start", Carry.RenewDelayMs / 1000), true)
+        end)
     end)
     Ext.Osiris.RegisterListener("CharacterJoinedParty", 1, "after", function(character)
         Carry.Apply("Joined the party: " .. Short(character))

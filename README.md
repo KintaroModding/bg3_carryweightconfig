@@ -17,14 +17,19 @@ does, how to install it and its compatibility are in [openmods.md](openmods.md),
 - The boost text each character got is kept in the mod variable `AppliedBoosts` (saved with the game,
   `Shared/Vars.lua`), so that a change removes exactly the old boost (`Osi.RemoveBoosts`) before it adds the new one,
   also for characters that left the team.
-- A loaded game does not have the boosts any more (game test 2026-10-20), although `AppliedBoosts` lists them. So
-  the first apply of each session renews every boost: it removes the recorded one and adds the current one. It also
-  logs the carry boosts it finds on each character (`BoostsContainer`) before that.
+- A loaded game does not have the boosts any more (game log 2026-10-20: `none` on every character), although
+  `AppliedBoosts` lists them. Boosts added during the load (`LevelGameplayStarted`) did not count either, while the
+  same calls a little later (the slider) did. So `LevelGameplayStarted` renews every boost (removes the recorded one,
+  adds the current one) and does it again 3 seconds later (`Carry.RenewDelayMs`). A renewal logs the carry boosts it
+  finds on each character (`BoostsContainer`) before it starts.
+- Nothing happens on `SessionLoaded`: Osiris databases cannot be read then ("Attempted to read Osiris database in
+  restricted context").
+- It also applies on `CharacterJoinedParty`, `CharacterLeftParty` and after each MCM change or profile switch;
+  characters whose boost is already right are left alone then.
 - Every apply runs protected: an error goes into `server.log` as `ERROR in <reason>: ...`, and the next event tries
   again.
-- It applies on `SessionLoaded`, `LevelGameplayStarted`, `CharacterJoinedParty`, `CharacterLeftParty` and after each
-  MCM change or profile switch; characters whose boost is already right are left alone.
-- A second after a change, `server.log` lists the weights the game computed (`EncumbranceStats`, in kg).
+- A second after a change, `server.log` lists the weights the game computed (`EncumbranceStats`, in kg) and the
+  carry boosts of each character.
 - Per bg3.wiki, carry weight boosts do not add up: only the highest one counts (except Human Versatility and Vaprak's
   Greed). The limit is (40 + 10 x Strength) kg (`CarryWeightBase`, `CarryLimitMultiplier` in `Data.txt`); the boost
   multiplies it.

@@ -19,23 +19,37 @@ end
 
 local B25 = "CarryCapacityMultiplier(2.50)"
 
-Test("the session load gives the boost to party members and camp companions, not to summons", function()
+Test("the session load only logs: Osiris databases cannot be read then", function()
     Ext.Events.SessionLoaded:Fire()
+    AssertEq(World.BoostsOf(World.Hero), "", "no boost yet")
+    AssertTrue(string.find(ServerLog(), "Settings: carry_multiplier = 2.5 (MCM).", 1, true), "settings line")
+end)
+
+Test("the level start gives the boost to party members and camp companions, not to summons", function()
+    Harness.Listeners["LevelGameplayStarted/2"]("WLD_Main_A", 0)
     AssertEq(World.BoostsOf(World.Hero), B25, "party member")
     AssertEq(World.BoostsOf(World.Shadowheart), B25, "party member")
     AssertEq(World.BoostsOf(World.Gale), B25, "camp companion")
     AssertEq(World.BoostsOf(World.Wolf), "", "no boost for a summon")
-    AssertTrue(string.find(ServerLog(), "Settings: carry_multiplier = 2.5 (MCM).", 1, true), "settings line")
-    AssertTrue(string.find(ServerLog(), "Session loaded: multiplier 2.50 (MCM), boost " .. B25
-        .. ": 3 changed, 0 unchanged, 0 removed (left the team).", 1, true), "apply line")
     AssertEq(Harness.ModVars.AppliedBoosts[string.sub(World.Hero, -36)], B25, "kept in the savegame")
+    local log = ServerLog()
+    AssertTrue(string.find(log, "Level started: renewing all boosts. Carry boosts found:", 1, true), "found line")
+    AssertTrue(string.find(log, "Level started: multiplier 2.50 (MCM), boost " .. B25
+        .. ": 3 changed, 0 unchanged, 0 removed (left the team).", 1, true), "apply line")
 end)
 
-Test("applying again changes nothing", function()
+Test("3 seconds after the level start, all boosts are renewed once more, not doubled", function()
+    -- ServerLog() above ran the timers, so the delayed renewal has run.
+    AssertTrue(string.find(ServerLog(), "3 s after the level start: multiplier 2.50 (MCM), boost " .. B25
+        .. ": 3 changed", 1, true), "renewal line")
+    AssertEq(World.BoostsOf(World.Hero), B25, "one boost, not two")
+end)
+
+Test("an event with the same value changes nothing", function()
     local calls = World.Calls.Add + World.Calls.Remove
-    Harness.Listeners["LevelGameplayStarted/2"]("WLD_Main_A", 0)
+    Harness.FireMCMSettingSaved("carry_multiplier", 2.5)
     AssertEq(World.Calls.Add + World.Calls.Remove, calls, "no Osiris calls")
-    AssertTrue(string.find(ServerLog(), "Level started: multiplier 2.50 (MCM), boost " .. B25 .. ": 0 changed, 3 unchanged",
+    AssertTrue(string.find(ServerLog(), "Setting changed: multiplier 2.50 (MCM), boost " .. B25 .. ": 0 changed, 3 unchanged",
         1, true), "log")
 end)
 
@@ -100,7 +114,7 @@ Test("after a load, the boosts that the game lost come back", function()
     Harness.Listeners["LevelGameplayStarted/2"]("WLD_Main_A", 0)
     AssertEq(World.BoostsOf(World.Hero), B25, "boost given again")
     AssertEq(World.BoostsOf(World.Gale), B25, "camp companion too")
-    AssertTrue(string.find(ServerLog(), "First apply of the session. Carry boosts found:", 1, true), "found line")
+    AssertTrue(string.find(ServerLog(), "Level started: renewing all boosts. Carry boosts found:", 1, true), "found line")
     AssertTrue(string.find(ServerLog(), "Level started: multiplier 2.50 (MCM), boost " .. B25 .. ": 3 changed", 1, true),
         "apply line")
     Harness.Listeners["LevelGameplayStarted/2"]("WLD_Main_A", 0)
@@ -115,7 +129,7 @@ Test("a boost that a save kept is replaced, not doubled", function()
     World.Characters[string.sub(World.Hero, -36)].Boosts["CarryCapacityMultiplier(3.00)"] = 1
     World.Characters[string.sub(World.Shadowheart, -36)].Boosts[B25] = 1
     Harness.ModVars.AppliedBoosts[string.sub(World.Shadowheart, -36)] = B25
-    Ext.Events.SessionLoaded:Fire()
+    Harness.Listeners["LevelGameplayStarted/2"]("WLD_Main_A", 0)
     AssertEq(World.BoostsOf(World.Hero), B25, "old boost removed, new one added")
     AssertEq(World.BoostsOf(World.Shadowheart), B25, "the same boost once, not twice")
 end)
@@ -132,11 +146,20 @@ Test("an error is written to server.log, and the next event tries again", functi
 end)
 
 Test("a second after a change, the log shows the limits the game computed", function()
-    Harness.Objects[World.Hero] = { Components = { EncumbranceStats = {
-        UnencumberedWeight = 224000, EncumberedWeight = 256000, HeavilyEncumberedWeight = 280000 } } }
+    Harness.Objects[World.Hero] = { Components = {
+        EncumbranceStats = { UnencumberedWeight = 224000, EncumberedWeight = 256000, HeavilyEncumberedWeight = 280000 },
+        -- The layout of the Script Extender's BoostsContainer component (BG3Extender Components/Boosts.h).
+        BoostsContainer = { Boosts = {
+            { Type = "Ability", Boosts = {} },
+            { Type = "CarryCapacityMultiplier", Boosts = {
+                { CarryCapacityMultiplierBoost = { Multiplier = 3 } },
+                { CarryCapacityMultiplierBoost = { Multiplier = 1.25 } },
+            } },
+        } },
+    } }
     Harness.FireMCMSettingSaved("carry_multiplier", 3)
-    AssertTrue(string.find(ServerLog(), "Carry limits in kg (UnencumberedWeight/EncumberedWeight/HeavilyEncumberedWeight): "
-        .. "S_Player_Hero 224/256/280.", 1, true), "limits line")
+    AssertTrue(string.find(ServerLog(), "Carry limits in kg (UnencumberedWeight/EncumberedWeight/HeavilyEncumberedWeight) "
+        .. "[carry boosts]: S_Player_Hero 224/256/280 [1.25+3].", 1, true), "limits line with the boosts")
     Harness.Objects[World.Hero] = nil
 end)
 

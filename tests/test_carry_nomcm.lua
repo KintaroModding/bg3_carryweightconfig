@@ -9,11 +9,11 @@ local Settings = Ext.Require("Shared/Settings.lua")
 
 Test("without MCM the default 2.0 applies", function()
     AssertEq(MCM, nil, "no MCM table")
-    Ext.Events.SessionLoaded:Fire()
+    Harness.Listeners["LevelGameplayStarted/2"]("WLD_Main_A", 0)
     AssertEq(World.BoostsOf(World.Hero), "CarryCapacityMultiplier(2.00)", "default boost")
     Harness.RunTimers()
     AssertTrue(string.find(Harness.Files["bg3_carryweightconfig/server.log"] or "",
-        "Session loaded: multiplier 2.00 (default), boost CarryCapacityMultiplier(2.00): 3 changed", 1, true), "log")
+        "Level started: multiplier 2.00 (default), boost CarryCapacityMultiplier(2.00): 3 changed", 1, true), "log")
 end)
 
 Test("OnChange reports that no change can come", function()
