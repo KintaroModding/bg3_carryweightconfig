@@ -1,0 +1,29 @@
+{
+  "SchemaVersion": 1,
+  "ModName": "Carry Weight Config",
+  "Tabs": [
+    {
+      "TabId": "general",
+      "TabName": "General",
+      "Sections": [
+        {
+          "SectionId": "general_settings",
+          "SectionName": "Carry weight",
+          "Settings": [
+            {
+              "Id": "carry_multiplier",
+              "Name": "Carry weight multiplier",
+              "Type": "slider_float",
+              "Default": 2.0,
+              "Options": {
+                "Min": 1.0,
+                "Max": 10.0
+              },
+              "Description": "Multiplies the carry weight limit of your party members and camp companions. 1.0 is the game's limit, 2.0 twice as much. A change applies at once. In multiplayer, the host's setting counts."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
