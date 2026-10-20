@@ -225,9 +225,9 @@ function Carry.Apply(reason, renewAll)
     end
 end
 
--- Boosts added while a save loads do not count (game log 2026-10-20: added at LevelGameplayStarted, the limits a
--- second later were still the game's), but a change some seconds later works (the slider). So the level start
--- renews all boosts once more after this delay.
+-- A safety check after this delay: the level start looks at everyone's boosts once more and adds only what is
+-- missing. Boosts added at LevelGameplayStarted do count (game log 2026-10-20, the fourth test); the failed loads
+-- before came from removing and adding the same boost text in one go (playbook knowledge\boosts.md).
 Carry.RenewDelayMs = 3000
 
 function Carry.Init()
