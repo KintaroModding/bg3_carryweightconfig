@@ -18,10 +18,11 @@ does, how to install it and its compatibility are in [openmods.md](openmods.md),
   `Shared/Vars.lua`), so that a change removes exactly the old boost (`Osi.RemoveBoosts`) before it adds the new one,
   also for characters that left the team.
 - A loaded game does not have the boosts any more (game log 2026-10-20: `none` on every character), although
-  `AppliedBoosts` lists them. Boosts added during the load (`LevelGameplayStarted`) did not count either, while the
-  same calls a little later (the slider) did. So `LevelGameplayStarted` renews every boost (removes the recorded one,
-  adds the current one) and does it again 3 seconds later (`Carry.RenewDelayMs`). A renewal logs the carry boosts it
-  finds on each character (`BoostsContainer`) before it starts.
+  `AppliedBoosts` lists them. So `LevelGameplayStarted` renews them, and checks again 3 seconds later
+  (`Carry.RenewDelayMs`): it reads each character's carry boosts (`BoostsContainer`) and adds the boost only when it
+  is missing. It never removes and adds the same boost text in one go: the game then ends without the boost (game log
+  2026-10-20: still `none` after such a renewal). A different old boost is removed first, as a slider change does.
+  The test world (`tests/world.lua`) behaves the same way: requests wait, additions run before removals.
 - Nothing happens on `SessionLoaded`: Osiris databases cannot be read then ("Attempted to read Osiris database in
   restricted context").
 - It also applies on `CharacterJoinedParty`, `CharacterLeftParty` and after each MCM change or profile switch;

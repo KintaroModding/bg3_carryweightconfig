@@ -38,10 +38,10 @@ Test("the level start gives the boost to party members and camp companions, not 
         .. ": 3 changed, 0 unchanged, 0 removed (left the team).", 1, true), "apply line")
 end)
 
-Test("3 seconds after the level start, all boosts are renewed once more, not doubled", function()
+Test("3 seconds after the level start, the check finds the boosts and adds none twice", function()
     -- ServerLog() above ran the timers, so the delayed renewal has run.
     AssertTrue(string.find(ServerLog(), "3 s after the level start: multiplier 2.50 (MCM), boost " .. B25
-        .. ": 3 changed", 1, true), "renewal line")
+        .. ": 0 changed, 3 unchanged", 1, true), "renewal line")
     AssertEq(World.BoostsOf(World.Hero), B25, "one boost, not two")
 end)
 
@@ -146,21 +146,16 @@ Test("an error is written to server.log, and the next event tries again", functi
 end)
 
 Test("a second after a change, the log shows the limits the game computed", function()
-    Harness.Objects[World.Hero] = { Components = {
-        EncumbranceStats = { UnencumberedWeight = 224000, EncumberedWeight = 256000, HeavilyEncumberedWeight = 280000 },
-        -- The layout of the Script Extender's BoostsContainer component (BG3Extender Components/Boosts.h).
-        BoostsContainer = { Boosts = {
-            { Type = "Ability", Boosts = {} },
-            { Type = "CarryCapacityMultiplier", Boosts = {
-                { CarryCapacityMultiplierBoost = { Multiplier = 3 } },
-                { CarryCapacityMultiplierBoost = { Multiplier = 1.25 } },
-            } },
-        } },
-    } }
+    local components = Harness.Objects[World.Hero].Components
+    components.EncumbranceStats = { UnencumberedWeight = 224000, EncumberedWeight = 256000,
+        HeavilyEncumberedWeight = 280000 }
+    -- A carry boost of the game on the same character (as Human Versatility gives 1.25).
+    World.Characters[string.sub(World.Hero, -36)].Boosts["CarryCapacityMultiplier(1.25)"] = 1
     Harness.FireMCMSettingSaved("carry_multiplier", 3)
     AssertTrue(string.find(ServerLog(), "Carry limits in kg (UnencumberedWeight/EncumberedWeight/HeavilyEncumberedWeight) "
         .. "[carry boosts]: S_Player_Hero 224/256/280 [1.25+3].", 1, true), "limits line with the boosts")
-    Harness.Objects[World.Hero] = nil
+    components.EncumbranceStats = nil
+    World.Characters[string.sub(World.Hero, -36)].Boosts["CarryCapacityMultiplier(1.25)"] = nil
 end)
 
 Test("an MCM error or a value of the wrong type gives the default", function()

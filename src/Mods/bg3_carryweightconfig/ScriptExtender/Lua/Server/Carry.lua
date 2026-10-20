@@ -76,23 +76,46 @@ local function SaveApplied(applied)
     Ext.Vars.GetModVariables(ModuleUUID).AppliedBoosts = applied
 end
 
---- The CarryCapacityMultiplier values a character has now, read from its boost components, for the log: "90",
---- "1.25+90" (several), "none", or "?" when the components cannot be read. Reading works (game log 2026-10-20:
---- Gale and Wyll showed 1.25, the boost of Human Versatility).
-local function CarryBoostsOf(character)
-    local ok, result = pcall(function()
+--- The CarryCapacityMultiplier values a character has now (numbers), read from its boost components, or nil when
+--- the components cannot be read. Reading works (game log 2026-10-20: Gale and Wyll showed 1.25, the boost of Human
+--- Versatility).
+local function CarryValuesOf(character)
+    local ok, values = pcall(function()
         local found = {}
         for _, entry in pairs(Ext.Entity.Get(character).BoostsContainer.Boosts) do
             if tostring(entry.Type) == "CarryCapacityMultiplier" then
                 for _, boost in pairs(entry.Boosts) do
-                    found[#found + 1] = string.format("%g", boost.CarryCapacityMultiplierBoost.Multiplier)
+                    found[#found + 1] = boost.CarryCapacityMultiplierBoost.Multiplier
                 end
             end
         end
-        table.sort(found)
-        return #found > 0 and table.concat(found, "+") or "none"
+        return found
     end)
-    return ok and result or "?"
+    return ok and values or nil
+end
+
+--- The same for the log: "90", "1.25+90" (several), "none", or "?" when the components cannot be read.
+local function CarryBoostsOf(character)
+    local values = CarryValuesOf(character)
+    if values == nil then
+        return "?"
+    end
+    local parts = {}
+    for _, value in ipairs(values) do
+        parts[#parts + 1] = string.format("%g", math.floor(value * 100 + 0.5) / 100)
+    end
+    table.sort(parts)
+    return #parts > 0 and table.concat(parts, "+") or "none"
+end
+
+--- True when the character has a carry boost of this multiplier now; false when not, or when it cannot be read.
+local function HasCarryBoost(character, multiplier)
+    for _, value in ipairs(CarryValuesOf(character) or {}) do
+        if math.abs(value - multiplier) < 0.005 then
+            return true
+        end
+    end
+    return false
 end
 
 --- One second later (the game recalculates the limits after a boost change), logs the weights the game computed
@@ -135,8 +158,10 @@ end
 --- characters that left the team. Writes one log line with the reason.
 ---
 --- A loaded game does not have the boosts any more (game log 2026-10-20: "none" after a load, although the saved
---- record listed them). So the first apply of a session, and every apply with renewAll, trusts nothing: it removes
---- the recorded boost (nothing happens when it is gone) and adds the current one.
+--- record listed them). So the first apply of a session, and every apply with renewAll, trusts no record: it looks at
+--- the character's boosts and adds the boost only when it is missing. It never removes and adds the same boost text
+--- at once: the game then drops the new boost (game log 2026-10-20: still "none" after such a renewal). A different
+--- old boost is removed first, as a slider change does.
 local function Apply(reason, renewAll)
     local multiplier, source = Carry.Multiplier()
     local boost = Carry.Boost(multiplier)
@@ -158,10 +183,10 @@ local function Apply(reason, renewAll)
         local uuid = Uuid(character)
         inTeam[uuid] = true
         local old = applied[uuid]
-        if old == boost and not renew then
+        if old == boost and (not renew or boost == nil or HasCarryBoost(character, multiplier)) then
             unchanged = unchanged + 1
         else
-            if old ~= nil then
+            if old ~= nil and old ~= boost then
                 Osi.RemoveBoosts(character, old, 0, Carry.SourceId, NO_CAUSE)
             end
             if boost ~= nil then
