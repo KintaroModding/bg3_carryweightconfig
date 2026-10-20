@@ -2,9 +2,10 @@
   "$schema": "https://openmods.nexus/openmods.schema.json",
   "openmods": 1,
   "name": "Carry Weight Config",
-  "summary": "Sets your party\u0027s carry weight limit with a multiplier in the Mod Configuration Menu: 1.0 is the game\u0027s limit, 2.0 twice as much.",
+  "summary": "Sets your party's carry weight limit with a multiplier in the Mod Configuration Menu: 1.0 is the game's limit, 2.0 twice as much.",
   "games": ["baldurs-gate-3"],
   "tags": ["quality-of-life"],
+  "cover": "docs/cover.png",
   "requires": ["Norbyte's Script Extender", "Mod Configuration Menu"],
   "gameVersions": ["Patch 8"]
 }

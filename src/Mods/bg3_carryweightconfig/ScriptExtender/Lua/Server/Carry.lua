@@ -12,7 +12,7 @@ Carry.SettingId = "carry_multiplier"
 Carry.SourceId = "bg3_carryweightconfig"
 -- The range of the slider in MCM_blueprint.json; values outside it (for example from an edited settings file) are
 -- clamped.
-Carry.Min, Carry.Max = 0.25, 10.0
+Carry.Min, Carry.Max = 0.25, 90.0
 -- The empty cause, as the game's own story procedures pass it.
 local NO_CAUSE = "NULL_00000000-0000-0000-0000-000000000000"
 

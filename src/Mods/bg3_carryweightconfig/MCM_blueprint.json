@@ -17,7 +17,7 @@
               "Default": 2.0,
               "Options": {
                 "Min": 0.25,
-                "Max": 10.0
+                "Max": 90.0
               },
               "Description": "Multiplies the carry weight limit of your party members and camp companions. 1.0 is the game's limit, 2.0 twice as much; below 1.0 makes the game harder. A change applies at once. In multiplayer, the host's setting counts."
             }

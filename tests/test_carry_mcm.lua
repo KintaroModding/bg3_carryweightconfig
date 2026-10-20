@@ -53,10 +53,10 @@ Test("1.0 removes the boost: the game's own limit", function()
 end)
 
 Test("values outside the slider range are clamped, and a profile switch reads the value again", function()
-    Harness.MCMValues.carry_multiplier = 25
+    Harness.MCMValues.carry_multiplier = 150
     Ext.ModEvents.BG3MCM["MCM_Profile_Activated"]:Fire({ profileName = "Other" })
-    AssertEq(World.BoostsOf(World.Hero), "CarryCapacityMultiplier(10.00)", "at most 10")
-    AssertTrue(string.find(ServerLog(), "MCM profile changed: multiplier 10.00", 1, true), "log")
+    AssertEq(World.BoostsOf(World.Hero), "CarryCapacityMultiplier(90.00)", "at most 90")
+    AssertTrue(string.find(ServerLog(), "MCM profile changed: multiplier 90.00", 1, true), "log")
     Harness.FireMCMSettingSaved("carry_multiplier", 0.05)
     AssertEq(World.BoostsOf(World.Hero), "CarryCapacityMultiplier(0.25)", "at least 0.25")
 end)
