@@ -77,11 +77,11 @@ Osi.AddBoosts = function(guid, text, source, cause)
     boosts[text] = (boosts[text] or 0) + 1
     World.Calls.Add = World.Calls.Add + 1
 end
+-- Removing a boost that the character does not have changes nothing (assumed for the game; a loaded game has lost
+-- the boosts that the saved record lists).
 Osi.RemoveBoosts = function(guid, text, onlyFirst, source, cause)
     assert(onlyFirst == 0 and source == "bg3_carryweightconfig" and cause == NO_CAUSE, "RemoveBoosts arguments")
-    local boosts = World.Characters[Uuid(guid)].Boosts
-    assert(boosts[text], "RemoveBoosts: the character has no boost " .. text)
-    boosts[text] = nil
+    World.Characters[Uuid(guid)].Boosts[text] = nil
     World.Calls.Remove = World.Calls.Remove + 1
 end
 

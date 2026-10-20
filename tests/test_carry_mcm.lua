@@ -87,12 +87,48 @@ Test("a new party member gets the boost, and one who left the team loses it", fu
         .. ": 0 changed, 3 unchanged, 1 removed (left the team).", 1, true), "log")
 end)
 
-Test("a boost from an earlier session is replaced exactly", function()
+Test("after a load, the boosts that the game lost come back", function()
+    -- The bug of the first game test: the saved record listed the boosts, the loaded game had none, and the mod
+    -- trusted the record.
+    local Carry = Ext.Require("Server/Carry.lua")
     World.Reset()
+    Carry.ResetSession()
+    Harness.ModVars.AppliedBoosts = {}
+    for _, guid in ipairs({ World.Hero, World.Shadowheart, World.Gale }) do
+        Harness.ModVars.AppliedBoosts[string.sub(guid, -36)] = B25
+    end
+    Harness.Listeners["LevelGameplayStarted/2"]("WLD_Main_A", 0)
+    AssertEq(World.BoostsOf(World.Hero), B25, "boost given again")
+    AssertEq(World.BoostsOf(World.Gale), B25, "camp companion too")
+    AssertTrue(string.find(ServerLog(), "First apply of the session. Carry boosts found:", 1, true), "found line")
+    AssertTrue(string.find(ServerLog(), "Level started: multiplier 2.50 (MCM), boost " .. B25 .. ": 3 changed", 1, true),
+        "apply line")
+    Harness.Listeners["LevelGameplayStarted/2"]("WLD_Main_A", 0)
+    AssertEq(World.BoostsOf(World.Hero), B25, "a second apply in the same session changes nothing")
+end)
+
+Test("a boost that a save kept is replaced, not doubled", function()
+    local Carry = Ext.Require("Server/Carry.lua")
+    World.Reset()
+    Carry.ResetSession()
     Harness.ModVars.AppliedBoosts = { [string.sub(World.Hero, -36)] = "CarryCapacityMultiplier(3.00)" }
     World.Characters[string.sub(World.Hero, -36)].Boosts["CarryCapacityMultiplier(3.00)"] = 1
+    World.Characters[string.sub(World.Shadowheart, -36)].Boosts[B25] = 1
+    Harness.ModVars.AppliedBoosts[string.sub(World.Shadowheart, -36)] = B25
     Ext.Events.SessionLoaded:Fire()
     AssertEq(World.BoostsOf(World.Hero), B25, "old boost removed, new one added")
+    AssertEq(World.BoostsOf(World.Shadowheart), B25, "the same boost once, not twice")
+end)
+
+Test("an error is written to server.log, and the next event tries again", function()
+    local original = Osi.DB_PartOfTheTeam
+    Osi.DB_PartOfTheTeam = { Get = function() error("Osiris is not ready") end }
+    Harness.FireMCMSettingSaved("carry_multiplier", 3)
+    AssertTrue(string.find(ServerLog(), "ERROR in Setting changed: ", 1, true), "error line")
+    AssertTrue(string.find(ServerLog(), "Osiris is not ready", 1, true), "error text")
+    Osi.DB_PartOfTheTeam = original
+    Harness.FireMCMSettingSaved("carry_multiplier", 2.5)
+    AssertEq(World.BoostsOf(World.Hero), B25, "works again")
 end)
 
 Test("a second after a change, the log shows the limits the game computed", function()

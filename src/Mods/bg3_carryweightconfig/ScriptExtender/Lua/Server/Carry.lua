@@ -80,37 +80,82 @@ end
 --- the component EncumbranceStats holds them in grams.
 local function LogLimits()
     Ext.Timer.WaitForRealtime(1000, function()
-        local parts = {}
-        for _, character in ipairs(Carry.Team()) do
-            local ok, stats = pcall(function()
-                return Ext.Entity.Get(character).EncumbranceStats
-            end)
-            if ok and stats ~= nil then
-                parts[#parts + 1] = string.format("%s %g/%g/%g", Short(character), stats.UnencumberedWeight / 1000,
-                    stats.EncumberedWeight / 1000, stats.HeavilyEncumberedWeight / 1000)
+        local done, err = pcall(function()
+            local parts = {}
+            for _, character in ipairs(Carry.Team()) do
+                local ok, stats = pcall(function()
+                    return Ext.Entity.Get(character).EncumbranceStats
+                end)
+                if ok and stats ~= nil then
+                    parts[#parts + 1] = string.format("%s %g/%g/%g", Short(character), stats.UnencumberedWeight / 1000,
+                        stats.EncumberedWeight / 1000, stats.HeavilyEncumberedWeight / 1000)
+                end
             end
-        end
-        if #parts > 0 then
-            ServerLog.Add("Carry limits in kg (UnencumberedWeight/EncumberedWeight/HeavilyEncumberedWeight): "
-                .. table.concat(parts, ", ") .. ".")
+            if #parts > 0 then
+                ServerLog.Add("Carry limits in kg (UnencumberedWeight/EncumberedWeight/HeavilyEncumberedWeight): "
+                    .. table.concat(parts, ", ") .. ".")
+            end
+        end)
+        if not done then
+            ServerLog.Add("ERROR while reading the carry limits: " .. tostring(err))
         end
     end)
 end
 
+--- The CarryCapacityMultiplier values a character has now, read from its boost components, for the log: "90",
+--- "90+2" (several), "none", or "?" when the components cannot be read.
+local function CarryBoostsOf(character)
+    local ok, result = pcall(function()
+        local found = {}
+        for _, entry in pairs(Ext.Entity.Get(character).BoostsContainer.Boosts) do
+            if tostring(entry.Type) == "CarryCapacityMultiplier" then
+                for _, boost in pairs(entry.Boosts) do
+                    found[#found + 1] = string.format("%g", boost.CarryCapacityMultiplierBoost.Multiplier)
+                end
+            end
+        end
+        return #found > 0 and table.concat(found, "+") or "none"
+    end)
+    return ok and result or "?"
+end
+
+-- What this mod gave in this session: [character UUID] = boost text. nil until the first apply of the session. The
+-- game starts the Lua state again for every session, so this starts empty after each load.
+local sessionApplied = nil
+
+--- For the tests: forget the session, as a new game session does.
+function Carry.ResetSession()
+    sessionApplied = nil
+end
+
 --- Gives every team member the boost of the current multiplier and removes old boosts of this mod, also from
 --- characters that left the team. Writes one log line with the reason.
-function Carry.Apply(reason)
+---
+--- A loaded game does not have the boosts any more (game test 2026-10-20: the limit was the game's after a load,
+--- although the saved record listed the boosts). So the first apply of a session trusts nothing: it removes the
+--- recorded boost (nothing happens when it is gone) and adds the current one.
+local function Apply(reason)
     local multiplier, source = Carry.Multiplier()
     local boost = Carry.Boost(multiplier)
-    local applied = LoadApplied()
+    local renew = sessionApplied == nil
+    local applied = renew and LoadApplied() or sessionApplied
     local inTeam = {}
     local changed, unchanged, removed = 0, 0, 0
 
-    for _, character in ipairs(Carry.Team()) do
+    local team = Carry.Team()
+    if renew then
+        local found = {}
+        for _, character in ipairs(team) do
+            found[#found + 1] = Short(character) .. " " .. CarryBoostsOf(character)
+        end
+        ServerLog.Add("First apply of the session. Carry boosts found: " .. table.concat(found, ", ") .. ".")
+    end
+
+    for _, character in ipairs(team) do
         local uuid = Uuid(character)
         inTeam[uuid] = true
         local old = applied[uuid]
-        if old == boost then
+        if old == boost and not renew then
             unchanged = unchanged + 1
         else
             if old ~= nil then
@@ -134,11 +179,21 @@ function Carry.Apply(reason)
         end
     end
 
+    sessionApplied = applied
     SaveApplied(applied)
     ServerLog.Add(string.format("%s: multiplier %.2f (%s), boost %s: %d changed, %d unchanged, %d removed (left the team).",
         reason, multiplier, source, boost or "none", changed, unchanged, removed))
-    if changed > 0 or removed > 0 or reason == "Session loaded" then
+    if changed > 0 or removed > 0 then
         LogLimits()
+    end
+end
+
+--- Apply, protected: an error goes into server.log (the Script Extender console is not visible from here), and the
+--- next event tries again.
+function Carry.Apply(reason)
+    local ok, err = pcall(Apply, reason)
+    if not ok then
+        ServerLog.Add("ERROR in " .. reason .. ": " .. tostring(err))
     end
 end
 
