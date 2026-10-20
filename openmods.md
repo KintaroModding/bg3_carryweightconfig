@@ -5,7 +5,8 @@ Sets your party's carry weight limit with a multiplier in the Mod Configuration 
 ## What it does
 
 - Multiplies the carry weight limit of all your party members and camp companions with a value that you set in
-  the Mod Configuration Menu: 1.0 is the game's limit, 2.0 twice as much, up to 10.0. The default is 2.0.
+  the Mod Configuration Menu: 1.0 is the game's limit, 2.0 twice as much, up to 10.0. Values down to 0.25 make the
+  game harder. The default is 2.0.
 - A change applies at once, also during a game. New party members get it when they join.
 - It uses the game's own carry weight boost (the one of Bull's Strength and Enlarge), so the game computes the limits
   as usual. NPCs and enemies keep the game's limits.
@@ -26,8 +27,8 @@ and delete the `.pak`. Saves made with the mod can then show a warning about a m
 ## How to use
 
 - Open the Mod Configuration Menu (main menu, Esc menu, or the Insert key) and select **Carry Weight Config**.
-- **Carry weight multiplier** (default 2.0, from 1.0 to 10.0): the factor for the carry weight limit. 1.0 gives the
-  game's limit. A change applies at once.
+- **Carry weight multiplier** (default 2.0, from 0.25 to 10.0): the factor for the carry weight limit. 1.0 gives the
+  game's limit, values below 1.0 a smaller one. A change applies at once.
 - In multiplayer, the host's setting counts for all players.
 - The Mod Configuration Menu stores the settings in its profile, not in the savegame.
 
@@ -36,7 +37,8 @@ and delete the `.pak`. Saves made with the mod can then show a warning about a m
 - Game version: Patch 8
 - Carry weight boosts in the game do not add up: only the highest one counts (per bg3.wiki, except Human Versatility
   and Vaprak's Greed). With 2.5 set, Bull's Strength (2.0) adds nothing more; with 1.5 set, Bull's Strength still
-  gives 2.0 while it lasts.
+  gives 2.0 while it lasts. The same rule works for low values: with 0.5 set, even Reduce (0.75) raises the limit to
+  0.75 while it lasts.
 - Mods that change the carry weight values in `Data.txt` work together with this one: the multiplier applies to the
   limit that they set.
 

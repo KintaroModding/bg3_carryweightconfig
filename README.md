@@ -10,7 +10,7 @@ does, how to install it and its compatibility are in [openmods.md](openmods.md),
 
 ## How it works
 
-- The MCM setting `carry_multiplier` (`slider_float`, 1.0 to 10.0, default 2.0) is the factor. `Server/Carry.lua`
+- The MCM setting `carry_multiplier` (`slider_float`, 0.25 to 10.0, default 2.0) is the factor. `Server/Carry.lua`
   rounds it to two decimals, clamps it to the slider range, and gives every party member (`DB_Players`) and camp
   companion (`DB_PartOfTheTeam`), without summons, the game's boost `CarryCapacityMultiplier(<factor>)` with
   `Osi.AddBoosts(character, boost, "bg3_carryweightconfig", NULL)`. For 1.0 it gives no boost.

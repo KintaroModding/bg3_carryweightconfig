@@ -57,8 +57,22 @@ Test("values outside the slider range are clamped, and a profile switch reads th
     Ext.ModEvents.BG3MCM["MCM_Profile_Activated"]:Fire({ profileName = "Other" })
     AssertEq(World.BoostsOf(World.Hero), "CarryCapacityMultiplier(10.00)", "at most 10")
     AssertTrue(string.find(ServerLog(), "MCM profile changed: multiplier 10.00", 1, true), "log")
-    Harness.FireMCMSettingSaved("carry_multiplier", 0.3)
-    AssertEq(World.BoostsOf(World.Hero), "", "at least 1.0, which needs no boost")
+    Harness.FireMCMSettingSaved("carry_multiplier", 0.05)
+    AssertEq(World.BoostsOf(World.Hero), "CarryCapacityMultiplier(0.25)", "at least 0.25")
+end)
+
+Test("the script clamps to the slider range of the blueprint", function()
+    local Carry = Ext.Require("Server/Carry.lua")
+    local slider = MCM_BLUEPRINT.Tabs[1].Sections[1].Settings[1]
+    AssertEq(slider.Id, Carry.SettingId, "setting id")
+    AssertEq(slider.Options.Min, Carry.Min, "Min")
+    AssertEq(slider.Options.Max, Carry.Max, "Max")
+end)
+
+Test("values below 1.0 lower the limit with the same boost", function()
+    Harness.FireMCMSettingSaved("carry_multiplier", 0.5)
+    AssertEq(World.BoostsOf(World.Hero), "CarryCapacityMultiplier(0.50)", "a boost below 1.0")
+    AssertEq(World.BoostsOf(World.Gale), "CarryCapacityMultiplier(0.50)", "camp companion too")
 end)
 
 Test("a new party member gets the boost, and one who left the team loses it", function()
