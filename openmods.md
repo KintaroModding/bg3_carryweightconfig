@@ -39,10 +39,12 @@ and delete the `.pak`. Saves made with the mod can then show a warning about a m
 ## Compatibility
 
 - Game version: Patch 8
-- Carry weight boosts in the game do not add up: only the highest one counts (per bg3.wiki, except Human Versatility
-  and Vaprak's Greed). With 2.5 set, Bull's Strength (2.0) adds nothing more; with 1.5 set, Bull's Strength still
-  gives 2.0 while it lasts. The same rule works for low values: with 0.5 set, even Reduce (0.75) raises the limit to
-  0.75 while it lasts.
+- Carry weight boosts in the game do not add up: only the highest one counts. A human's Human Versatility (1.25)
+  adds nothing on top of this mod's value either. With 2.5 set, Bull's Strength (2.0) adds nothing more; with 1.5
+  set, Bull's Strength still gives 2.0 while it lasts. The same rule works for low values: with 0.5 set, even Reduce
+  (0.75) raises the limit to 0.75 while it lasts.
+- After loading a save, the game's limit shows for a few seconds, until the level has started; then the mod's value
+  applies.
 - Mods that change the carry weight values in `Data.txt` work together with this one: the multiplier applies to the
   limit that they set.
 

@@ -31,9 +31,11 @@ does, how to install it and its compatibility are in [openmods.md](openmods.md),
   again.
 - A second after a change, `server.log` lists the weights the game computed (`EncumbranceStats`, in kg) and the
   carry boosts of each character.
-- Per bg3.wiki, carry weight boosts do not add up: only the highest one counts (except Human Versatility and Vaprak's
-  Greed). The limit is (40 + 10 x Strength) kg (`CarryWeightBase`, `CarryLimitMultiplier` in `Data.txt`); the boost
-  multiplies it.
+- Carry weight boosts do not add up: only the highest one counts. bg3.wiki names Human Versatility as an exception,
+  but the game log of 2026-10-20 shows it adds nothing on top of this mod's boost (Gale and Wyll with 1.25 + 21.24
+  had the same limits as the others). The limit is (40 + 10 x Strength) kg (`CarryWeightBase`,
+  `CarryLimitMultiplier` in `Data.txt`, Strength 8: 120 kg); the boost multiplies it and the Encumbered and Heavily
+  Encumbered thresholds (game log: 96/112/120 kg became 2039.04/2378.88/2548.8 kg with 21.24).
 
 ## Settings
 
